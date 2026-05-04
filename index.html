@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Controle Financeiro</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💰%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  body { margin: 0; background: #0E0E10; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; }
+  .mono { font-family: 'Geist Mono', ui-monospace, monospace; font-feature-settings: 'tnum'; }
+  .fade-in { animation: fadeIn .35s ease-out both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px);} to { opacity: 1; transform: none; } }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-12px);} to { opacity: 1; transform: none; } }
+  input:focus, select:focus { outline: none; border-color: #E8B65A !important; box-shadow: 0 0 0 1px rgba(232,182,90,.2); }
+  button:focus-visible { outline: 1px solid #E8B65A; outline-offset: 2px; }
+  ::selection { background: rgba(232,182,90,.3); }
+  .scroll-y::-webkit-scrollbar { width: 6px; }
+  .scroll-y::-webkit-scrollbar-track { background: transparent; }
+  .scroll-y::-webkit-scrollbar-thumb { background: #2a2a2e; border-radius: 3px; }
+  .campo-input {
+    width: 100%; background: transparent; border: 1px solid #27272a;
+    color: #E8E6E3; padding: 10px 12px; border-radius: 6px;
+    font-size: 14px; font-family: inherit; transition: border-color .15s;
+  }
+  .campo-input::placeholder { color: #52525b; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+
+// ============================================================
+// 🔑 COLE AQUI SUAS CREDENCIAIS DO SUPABASE (substitua os 2 valores)
+// ============================================================
+const SUPABASE_URL = "COLE_SUA_URL_AQUI";
+const SUPABASE_ANON_KEY = "COLE_SUA_CHAVE_ANON_AQUI";
+// ============================================================
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const { useState, useEffect, useRef, useMemo } = React;
+
+// Ícones SVG inline
+const Icon = ({ children, size = 16 }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+);
+const IPlus = (p) => <Icon {...p}><path d="M12 5v14M5 12h14"/></Icon>;
+const ITrash = (p) => <Icon {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></Icon>;
+const ILeft = (p) => <Icon {...p}><polyline points="15 18 9 12 15 6"/></Icon>;
+const IRight = (p) => <Icon {...p}><polyline points="9 18 15 12 9 6"/></Icon>;
+const IUp = (p) => <Icon {...p}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></Icon>;
+const IDown = (p) => <Icon {...p}><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></Icon>;
+const IWallet = (p) => <Icon {...p}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></Icon>;
+const IX = (p) => <Icon {...p}><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></Icon>;
+const ITag = (p) => <Icon {...p}><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></Icon>;
+const IRepeat = (p) => <Icon {...p}><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></Icon>;
+const IPencil = (p) => <Icon {...p}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></Icon>;
+const IMenu = (p) => <Icon {...p}><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></Icon>;
+
+const MESES_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const CATEGORIAS = [
+  { id: "pessoal",     nome: "Pessoal",            cor: "#E8B65A" },
+  { id: "ferramentas", nome: "Ferramentas Online", cor: "#6FA8DC" },
+  { id: "alimentacao", nome: "Alimentação",        cor: "#7FB069" },
+];
+const getCategoria = (id) => CATEGORIAS.find((c) => c.id === id);
+const formatBRL = (n) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n || 0);
+const chaveMes = (ano, mes) => `${ano}-${String(mes + 1).padStart(2, "0")}`;
+const compararMes = (a, b) => a.localeCompare(b);
+const mesAtualKey = () => { const d = new Date(); return chaveMes(d.getFullYear(), d.getMonth()); };
+
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
+function App() {
+  const agora = new Date();
+  const [ano, setAno] = useState(agora.getFullYear());
+  const [mes, setMes] = useState(agora.getMonth());
+  const [transacoes, setTransacoes] = useState([]);
+  const [gastosFixos, setGastosFixos] = useState([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erroConexao, setErroConexao] = useState(null);
+  const [formAberto, setFormAberto] = useState(null);
+  const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [formFixoAberto, setFormFixoAberto] = useState(false);
+  const [fixoEditando, setFixoEditando] = useState(null);
+  const [editandoTx, setEditandoTx] = useState(null);
+  const [dialogoEscopo, setDialogoEscopo] = useState(null);
+
+  const periodoAtual = chaveMes(ano, mes);
+
+  // Verifica credenciais
+  useEffect(() => {
+    if (SUPABASE_URL.includes("COLE_SUA") || SUPABASE_ANON_KEY.includes("COLE_SUA")) {
+      setErroConexao("Configure SUPABASE_URL e SUPABASE_ANON_KEY no início do arquivo HTML.");
+      setCarregando(false);
+    }
+  }, []);
+
+  // Carrega gastos fixos
+  useEffect(() => {
+    if (erroConexao) return;
+    (async () => {
+      const { data, error } = await supabase.from("gastos_fixos").select("*").order("descricao");
+      if (error) { setErroConexao("Erro ao conectar: " + error.message); return; }
+      setGastosFixos(data || []);
+    })();
+  }, [erroConexao]);
+
+  // Carrega transações + materializa fixos
+  useEffect(() => {
+    if (erroConexao) return;
+    let cancelado = false;
+    (async () => {
+      setCarregando(true);
+      try {
+        const { data: existentes, error } = await supabase
+          .from("transacoes").select("*").eq("periodo", periodoAtual);
+        if (error) throw error;
+        if (cancelado) return;
+        let txMes = (existentes || []).map(t => ({...t, valor: Number(t.valor)}));
+
+        const marcadoresExcluidos = new Set(txMes.filter(t => t.excluido_fixo_id).map(t => t.excluido_fixo_id));
+        const fixosJaInstanciados = new Set(txMes.filter(t => t.fixo_id).map(t => t.fixo_id));
+
+        const novas = [];
+        for (const fixo of gastosFixos) {
+          if (compararMes(periodoAtual, fixo.criado_em) < 0) continue;
+          if (fixosJaInstanciados.has(fixo.id)) continue;
+          if (marcadoresExcluidos.has(fixo.id)) continue;
+          const tx = {
+            id: `${fixo.id}__${periodoAtual}`,
+            periodo: periodoAtual,
+            tipo: "saida",
+            descricao: fixo.descricao,
+            valor: Number(fixo.valor),
+            banco: fixo.banco || "",
+            categoria_id: fixo.categoria_id,
+            fixo_id: fixo.id,
+          };
+          await supabase.from("transacoes").insert(tx);
+          novas.push(tx);
+        }
+        if (cancelado) return;
+        txMes = [...txMes.filter(t => !t.excluido_fixo_id), ...novas];
+        setTransacoes(txMes);
+      } catch (e) {
+        if (!cancelado) setErroConexao("Erro: " + e.message);
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [periodoAtual, gastosFixos, erroConexao]);
+
+  const salvarTx = async (tx) => {
+    const payload = { ...tx, periodo: periodoAtual };
+    await supabase.from("transacoes").upsert(payload);
+    setTransacoes(prev => [...prev.filter(x => x.id !== tx.id), payload]);
+  };
+
+  const removerTxPontual = async (tx) => {
+    if (tx.fixo_id) {
+      const marcador = {
+        id: `excl_${tx.fixo_id}_${periodoAtual}`,
+        periodo: periodoAtual, tipo: "_marker",
+        descricao: "", valor: 0, excluido_fixo_id: tx.fixo_id,
+      };
+      await supabase.from("transacoes").upsert(marcador);
+    }
+    await supabase.from("transacoes").delete().eq("id", tx.id);
+    setTransacoes(prev => prev.filter(x => x.id !== tx.id));
+  };
+
+  const salvarFixo = async (fixo, propagar = true) => {
+    await supabase.from("gastos_fixos").upsert(fixo);
+    setGastosFixos(prev => {
+      const novos = [...prev.filter(f => f.id !== fixo.id), fixo];
+      return novos.sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
+    });
+    if (propagar) {
+      const limite = mesAtualKey();
+      const { data } = await supabase.from("transacoes").select("*")
+        .eq("fixo_id", fixo.id).gte("periodo", limite);
+      for (const tx of (data || [])) {
+        const atualizada = {
+          ...tx, descricao: fixo.descricao, valor: fixo.valor,
+          banco: fixo.banco || "", categoria_id: fixo.categoria_id,
+        };
+        await supabase.from("transacoes").upsert(atualizada);
+        if (tx.periodo === periodoAtual) {
+          setTransacoes(prev => prev.map(t => t.id === atualizada.id ? atualizada : t));
+        }
+      }
+    }
+  };
+
+  const removerFixoCompleto = async (fixoId) => {
+    await supabase.from("gastos_fixos").delete().eq("id", fixoId);
+    const limite = mesAtualKey();
+    await supabase.from("transacoes").delete().eq("fixo_id", fixoId).gte("periodo", limite);
+    await supabase.from("transacoes").delete().eq("excluido_fixo_id", fixoId).gte("periodo", limite);
+    setGastosFixos(prev => prev.filter(f => f.id !== fixoId));
+    setTransacoes(prev => prev.filter(t => t.fixo_id !== fixoId));
+  };
+
+  const iniciarEdicao = (tx) => setEditandoTx(tx);
+
+  const confirmarEdicao = (dadosNovos) => {
+    if (editandoTx?.fixo_id) {
+      setDialogoEscopo({ acao: "editar", tx: editandoTx, dadosNovos });
+      setEditandoTx(null);
+    } else if (editandoTx) {
+      salvarTx({ ...editandoTx, ...dadosNovos });
+      setEditandoTx(null);
+    }
+  };
+
+  const iniciarRemocao = (tx) => {
+    if (tx.fixo_id) setDialogoEscopo({ acao: "remover", tx });
+    else removerTxPontual(tx);
+  };
+
+  const aplicarEscopo = async (escopo) => {
+    if (!dialogoEscopo) return;
+    const { acao, tx, dadosNovos } = dialogoEscopo;
+    if (acao === "editar") {
+      if (escopo === "mes") {
+        const desvinculada = {
+          ...tx, ...dadosNovos, fixo_id: null,
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          periodo: periodoAtual,
+        };
+        await supabase.from("transacoes").delete().eq("id", tx.id);
+        const marcador = {
+          id: `excl_${tx.fixo_id}_${periodoAtual}`,
+          periodo: periodoAtual, tipo: "_marker",
+          descricao: "", valor: 0, excluido_fixo_id: tx.fixo_id,
+        };
+        await supabase.from("transacoes").upsert(marcador);
+        await supabase.from("transacoes").insert(desvinculada);
+        setTransacoes(prev => [...prev.filter(t => t.id !== tx.id), desvinculada]);
+      } else {
+        const fixo = gastosFixos.find(f => f.id === tx.fixo_id);
+        if (fixo) {
+          await salvarFixo({
+            ...fixo, descricao: dadosNovos.descricao, valor: dadosNovos.valor,
+            banco: dadosNovos.banco || "", categoria_id: dadosNovos.categoria_id,
+          }, true);
+        }
+      }
+    } else if (acao === "remover") {
+      if (escopo === "mes") await removerTxPontual(tx);
+      else await removerFixoCompleto(tx.fixo_id);
+    }
+    setDialogoEscopo(null);
+  };
+
+  const txsVisiveis = useMemo(() => transacoes.filter(t => t.tipo !== "_marker"), [transacoes]);
+
+  const { totalEntradas, totalSaidas, saldo, saidas, entradas, porCategoria } = useMemo(() => {
+    const saidas = txsVisiveis.filter(t => t.tipo === "saida");
+    const entradas = txsVisiveis.filter(t => t.tipo === "entrada");
+    const totalSaidas = saidas.reduce((s, t) => s + Number(t.valor || 0), 0);
+    const totalEntradas = entradas.reduce((s, t) => s + Number(t.valor || 0), 0);
+    const porCategoria = CATEGORIAS.map((cat) => {
+      const itens = saidas.filter(t => t.categoria_id === cat.id);
+      const valor = itens.reduce((s, t) => s + Number(t.valor || 0), 0);
+      return { ...cat, valor, percent: totalSaidas > 0 ? (valor / totalSaidas) * 100 : 0, qtd: itens.length };
+    }).filter(c => c.valor > 0).sort((a, b) => b.valor - a.valor);
+    return { totalEntradas, totalSaidas, saldo: totalEntradas - totalSaidas, saidas, entradas, porCategoria };
+  }, [txsVisiveis]);
+
+  const saidasOrdenadas = useMemo(() => {
+    const fixos = saidas.filter(t => t.fixo_id);
+    const manuais = saidas.filter(t => !t.fixo_id);
+    return [
+      ...fixos.sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR")),
+      ...manuais.sort((a, b) => b.id.localeCompare(a.id)),
+    ];
+  }, [saidas]);
+
+  const navegarMes = (delta) => {
+    let novoMes = mes + delta, novoAno = ano;
+    if (novoMes > 11) { novoMes = 0; novoAno++; }
+    if (novoMes < 0) { novoMes = 11; novoAno--; }
+    if (novoAno > 2030 || (novoAno === 2030 && novoMes > 11)) return;
+    if (novoAno < 2020) return;
+    setMes(novoMes); setAno(novoAno);
+  };
+
+  const totalFixosMensal = useMemo(() => gastosFixos.reduce((s, f) => s + Number(f.valor || 0), 0), [gastosFixos]);
+
+  if (erroConexao) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#0E0E10", color: "#E8E6E3" }}>
+        <div className="max-w-md border border-zinc-800 rounded-lg p-6">
+          <h2 className="text-lg mb-3" style={{ color: "#D97757" }}>⚠️ Configuração necessária</h2>
+          <p className="text-sm text-zinc-400 leading-relaxed">{erroConexao}</p>
+          <p className="text-xs text-zinc-500 mt-4">Veja o arquivo README.md para o passo a passo completo.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen w-full flex" style={{ background: "radial-gradient(ellipse at top, #1a1a1d 0%, #0E0E10 60%)", color: "#E8E6E3" }}>
+      <SidebarFixos
+        aberta={sidebarAberta}
+        onFechar={() => setSidebarAberta(false)}
+        gastosFixos={gastosFixos}
+        totalFixos={totalFixosMensal}
+        onNovo={() => { setFixoEditando(null); setFormFixoAberto(true); }}
+        onEditar={(f) => { setFixoEditando(f); setFormFixoAberto(true); }}
+        onRemover={(id) => removerFixoCompleto(id)}
+      />
+
+      <div className="flex-1 min-w-0 lg:ml-72">
+        <div className="max-w-6xl mx-auto px-6 lg:px-10 py-8 lg:py-12">
+
+          <header className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10 fade-in">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setSidebarAberta(true)} className="lg:hidden p-2 rounded-md border border-zinc-800 hover:border-zinc-600 transition" aria-label="Menu">
+                <IMenu size={16} />
+              </button>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 mb-2">Controle Financeiro Mensal</p>
+                <div className="flex items-baseline gap-4">
+                  <h1 className="text-4xl lg:text-5xl font-light tracking-tight">{MESES_PT[mes]}</h1>
+                  <span className="mono text-2xl text-zinc-500">{ano}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => navegarMes(-1)} className="p-2.5 rounded-md border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900 transition"><ILeft size={16} /></button>
+              <button onClick={() => { setAno(agora.getFullYear()); setMes(agora.getMonth()); }} className="px-4 py-2 text-xs uppercase tracking-wider border border-zinc-800 rounded-md hover:border-zinc-600 hover:bg-zinc-900 transition">Mês atual</button>
+              <button onClick={() => navegarMes(1)} className="p-2.5 rounded-md border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900 transition"><IRight size={16} /></button>
+            </div>
+          </header>
+
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-10 fade-in" style={{ animationDelay: ".05s" }}>
+            <SummaryCard label="Entradas" value={totalEntradas} icon={<IUp size={14} />} tone="positive" />
+            <SummaryCard label="Saídas" value={totalSaidas} icon={<IDown size={14} />} tone="negative" />
+            <SummaryCard label="Saldo" value={saldo} icon={<IWallet size={14} />} tone={saldo >= 0 ? "highlight" : "danger"} emphasis />
+          </section>
+
+          <div className="flex flex-wrap gap-2 mb-6 fade-in">
+            <ActionButton active={formAberto === "saida"} onClick={() => setFormAberto(formAberto === "saida" ? null : "saida")} tone="negative">
+              <IPlus size={14} /> Despesa
+            </ActionButton>
+            <ActionButton active={formAberto === "entrada"} onClick={() => setFormAberto(formAberto === "entrada" ? null : "entrada")} tone="positive">
+              <IPlus size={14} /> Receita
+            </ActionButton>
+          </div>
+
+          {formAberto && (
+            <FormularioTransacao tipo={formAberto}
+              onSalvar={async (tx) => { await salvarTx(tx); setFormAberto(null); }}
+              onCancelar={() => setFormAberto(null)} />
+          )}
+
+          {editandoTx && (
+            <FormularioTransacao tipo={editandoTx.tipo} valoresIniciais={editandoTx} ehEdicao
+              eFixo={!!editandoTx.fixo_id}
+              onSalvar={confirmarEdicao}
+              onCancelar={() => setEditandoTx(null)} />
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
+            <section className="lg:col-span-2 fade-in">
+              <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                <h2 className="text-sm uppercase tracking-[0.18em] text-zinc-400">Despesas do mês</h2>
+                <span className="mono text-xs text-zinc-500">{saidas.length} {saidas.length === 1 ? "item" : "itens"}</span>
+              </div>
+              {carregando ? <EstadoVazio>Carregando…</EstadoVazio> : saidas.length === 0 ? (
+                <EstadoVazio>Nenhuma despesa registrada para {MESES_PT[mes].toLowerCase()}.</EstadoVazio>
+              ) : (
+                <ul className="space-y-px">
+                  {saidasOrdenadas.map((tx) => (
+                    <ItemTransacao key={tx.id} tx={tx} onEditar={() => iniciarEdicao(tx)} onRemover={() => iniciarRemocao(tx)} />
+                  ))}
+                  <li className="flex items-center justify-between px-4 py-4 mt-3 border-t border-zinc-800">
+                    <span className="text-xs uppercase tracking-wider text-zinc-500">Total de saídas</span>
+                    <span className="mono text-lg" style={{ color: "#D97757" }}>{formatBRL(totalSaidas)}</span>
+                  </li>
+                </ul>
+              )}
+            </section>
+
+            <aside className="lg:col-span-1 space-y-8">
+              <section className="fade-in">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                  <h2 className="text-sm uppercase tracking-[0.18em] text-zinc-400">Distribuição</h2>
+                  <span className="mono text-xs text-zinc-500">{porCategoria.length}/{CATEGORIAS.length}</span>
+                </div>
+                <GraficoPizza dados={porCategoria} total={totalSaidas} />
+              </section>
+
+              <section className="fade-in">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                  <h2 className="text-sm uppercase tracking-[0.18em] text-zinc-400">Receitas</h2>
+                  <span className="mono text-xs text-zinc-500">{entradas.length} {entradas.length === 1 ? "item" : "itens"}</span>
+                </div>
+                {carregando ? <EstadoVazio>Carregando…</EstadoVazio> : entradas.length === 0 ? (
+                  <EstadoVazio>Nenhuma receita registrada.</EstadoVazio>
+                ) : (
+                  <ul className="space-y-px">
+                    {entradas.map((tx) => (
+                      <ItemTransacao key={tx.id} tx={tx} onEditar={() => iniciarEdicao(tx)} onRemover={() => iniciarRemocao(tx)} />
+                    ))}
+                    <li className="flex items-center justify-between px-4 py-4 mt-3 border-t border-zinc-800">
+                      <span className="text-xs uppercase tracking-wider text-zinc-500">Total</span>
+                      <span className="mono text-lg" style={{ color: "#7FB069" }}>{formatBRL(totalEntradas)}</span>
+                    </li>
+                  </ul>
+                )}
+              </section>
+            </aside>
+          </div>
+
+          <footer className="mt-16 pt-6 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-600">
+            <span className="mono">{periodoAtual}</span>
+            <span className="uppercase tracking-wider">Dados sincronizados na nuvem</span>
+          </footer>
+        </div>
+      </div>
+
+      {formFixoAberto && (
+        <ModalFixo fixo={fixoEditando}
+          onSalvar={async (f) => { await salvarFixo(f, true); setFormFixoAberto(false); setFixoEditando(null); }}
+          onFechar={() => { setFormFixoAberto(false); setFixoEditando(null); }} />
+      )}
+
+      {dialogoEscopo && (
+        <DialogoEscopo dialogo={dialogoEscopo} onAplicar={aplicarEscopo} onCancelar={() => setDialogoEscopo(null)} />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// COMPONENTES
+// ============================================================
+
+function SidebarFixos({ aberta, onFechar, gastosFixos, totalFixos, onNovo, onEditar, onRemover }) {
+  return (
+    <>
+      {aberta && <div className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={onFechar} />}
+      <aside className={`fixed top-0 left-0 h-full w-72 z-50 flex flex-col border-r transition-transform duration-300 ${aberta ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`} style={{ borderColor: "#1f1f23", background: "#0a0a0c" }}>
+        <div className="flex items-center justify-between px-5 py-5 border-b" style={{ borderColor: "#1f1f23" }}>
+          <div className="flex items-center gap-2">
+            <span style={{ color: "#E8B65A" }}><IRepeat size={14} /></span>
+            <span className="text-xs uppercase tracking-[0.18em] text-zinc-300">Gastos Fixos</span>
+          </div>
+          <button onClick={onFechar} className="lg:hidden text-zinc-500 hover:text-zinc-300 p-1"><IX size={16} /></button>
+        </div>
+        <div className="px-5 py-4 border-b" style={{ borderColor: "#1f1f23" }}>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500 mb-1">Total mensal</p>
+          <p className="mono text-2xl" style={{ color: "#E8B65A" }}>{formatBRL(totalFixos)}</p>
+        </div>
+        <button onClick={onNovo} className="mx-5 mt-4 mb-2 px-3 py-2.5 text-sm border border-dashed rounded-md text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition flex items-center justify-center gap-2" style={{ borderColor: "#27272a" }}>
+          <IPlus size={14} /> Adicionar gasto fixo
+        </button>
+        <div className="flex-1 overflow-y-auto scroll-y px-3 pb-4 mt-2">
+          {gastosFixos.length === 0 ? (
+            <div className="px-2 py-6 text-center">
+              <p className="text-xs text-zinc-600 leading-relaxed">Cadastre seus gastos recorrentes (assinaturas, aluguel, etc.).<br />Eles aparecerão automaticamente em todos os meses.</p>
+            </div>
+          ) : (
+            <ul className="space-y-1">
+              {gastosFixos.map((f) => {
+                const cat = getCategoria(f.categoria_id);
+                return (
+                  <li key={f.id} className="group px-3 py-2.5 rounded-md hover:bg-zinc-900/60 transition" style={{ animation: "slideIn .25s ease-out both" }}>
+                    <div className="flex items-start gap-2">
+                      {cat && <span className="w-1 h-10 rounded-sm shrink-0 mt-0.5" style={{ background: cat.cor }} />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-zinc-200 truncate">{f.descricao}</span>
+                          <span className="mono text-xs shrink-0" style={{ color: "#D97757" }}>{formatBRL(f.valor)}</span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {cat && <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${cat.cor}15`, color: cat.cor }}>{cat.nome}</span>}
+                          {f.banco && <span className="text-[10px] text-zinc-500 truncate">{f.banco}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-1 mt-1.5 opacity-0 group-hover:opacity-100 transition">
+                      <button onClick={() => onEditar(f)} className="text-[10px] uppercase tracking-wider text-zinc-500 hover:text-zinc-300 px-1.5 py-1 flex items-center gap-1"><IPencil size={10} /> Editar</button>
+                      <button onClick={() => onRemover(f.id)} className="text-[10px] uppercase tracking-wider text-zinc-500 hover:text-red-400 px-1.5 py-1 flex items-center gap-1"><ITrash size={10} /> Remover</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+        <div className="px-5 py-3 text-[10px] text-zinc-600 border-t leading-relaxed" style={{ borderColor: "#1f1f23" }}>
+          Edições aqui propagam para todos os meses correntes e futuros.
+        </div>
+      </aside>
+    </>
+  );
+}
+
+function ModalFixo({ fixo, onSalvar, onFechar }) {
+  const [descricao, setDescricao] = useState(fixo?.descricao || "");
+  const [valor, setValor] = useState(fixo ? String(fixo.valor).replace(".", ",") : "");
+  const [banco, setBanco] = useState(fixo?.banco || "");
+  const [categoriaId, setCategoriaId] = useState(fixo?.categoria_id || "");
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const submeter = () => {
+    const v = parseFloat(String(valor).replace(",", "."));
+    if (!descricao.trim() || !v || v <= 0 || !categoriaId) return;
+    onSalvar({
+      id: fixo?.id || `fx_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      descricao: descricao.trim(), valor: v, banco: banco.trim(),
+      categoria_id: categoriaId, criado_em: fixo?.criado_em || mesAtualKey(),
+    });
+  };
+  const onKey = (e) => { if (e.key === "Enter") submeter(); if (e.key === "Escape") onFechar(); };
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.7)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-md border rounded-lg p-6 fade-in" style={{ borderColor: "#27272a", background: "#141417" }} onKeyDown={onKey}>
+        <div className="flex items-center justify-between mb-5">
+          <span className="text-xs uppercase tracking-[0.18em]" style={{ color: "#E8B65A" }}>{fixo ? "Editar gasto fixo" : "Novo gasto fixo"}</span>
+          <button onClick={onFechar} className="text-zinc-500 hover:text-zinc-300 p-1"><IX size={14} /></button>
+        </div>
+        <div className="space-y-3">
+          <CampoForm label="Descrição">
+            <input ref={inputRef} type="text" placeholder="Aluguel, Notion, Netflix…" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="campo-input" />
+          </CampoForm>
+          <div className="grid grid-cols-2 gap-3">
+            <CampoForm label="Valor (R$)">
+              <input type="text" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} className="campo-input mono" />
+            </CampoForm>
+            <CampoForm label="Banco">
+              <input type="text" placeholder="Nubank, Itaú…" value={banco} onChange={(e) => setBanco(e.target.value)} className="campo-input" />
+            </CampoForm>
+          </div>
+          <div>
+            <span className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 block mb-2">Categoria *</span>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIAS.map((cat) => {
+                const ativa = categoriaId === cat.id;
+                return (
+                  <button key={cat.id} type="button" onClick={() => setCategoriaId(cat.id)}
+                    className="px-3 py-2 text-sm border rounded-md transition flex items-center gap-2"
+                    style={{ background: ativa ? `${cat.cor}18` : "transparent", borderColor: ativa ? cat.cor : "#27272a", color: ativa ? cat.cor : "#A1A1AA" }}>
+                    <span className="w-2 h-2 rounded-sm" style={{ background: cat.cor }} />{cat.nome}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center justify-between mt-6 pt-5 border-t" style={{ borderColor: "#27272a" }}>
+          <span className="text-xs text-zinc-600">Aplica em todos os meses futuros</span>
+          <div className="flex gap-2">
+            <button onClick={onFechar} className="px-4 py-2 text-xs uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition">Cancelar</button>
+            <button onClick={submeter} className="px-5 py-2 text-xs uppercase tracking-wider rounded-md transition" style={{ background: "#E8B65A", color: "#0E0E10", fontWeight: 600 }}>Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DialogoEscopo({ dialogo, onAplicar, onCancelar }) {
+  const ehRemocao = dialogo.acao === "remover";
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.75)", backdropFilter: "blur(4px)" }}>
+      <div className="w-full max-w-md border rounded-lg p-6 fade-in" style={{ borderColor: "#27272a", background: "#141417" }}>
+        <div className="flex items-start gap-3 mb-5">
+          <div className="p-2 rounded-md mt-0.5" style={{ background: "rgba(232,182,90,.1)" }}>
+            <span style={{ color: "#E8B65A" }}><IRepeat size={14} /></span>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-medium text-zinc-100">{ehRemocao ? "Remover gasto fixo?" : "Aplicar alteração?"}</h3>
+            <p className="text-xs text-zinc-500 mt-1">"{dialogo.tx.descricao}" é um gasto fixo recorrente. Escolha como aplicar:</p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <button onClick={() => onAplicar("mes")} className="w-full text-left p-4 border rounded-md hover:border-zinc-600 transition" style={{ borderColor: "#27272a", background: "rgba(255,255,255,.01)" }}>
+            <div className="text-sm text-zinc-200 mb-1">{ehRemocao ? "Apenas este mês" : "Apenas neste mês"}</div>
+            <div className="text-xs text-zinc-500 leading-relaxed">{ehRemocao ? "Remove só desta lista de despesas. Continua aparecendo nos demais meses." : "Cria uma exceção pontual. Os outros meses mantêm o valor original."}</div>
+          </button>
+          <button onClick={() => onAplicar("futuros")} className="w-full text-left p-4 border rounded-md hover:border-zinc-600 transition" style={{ borderColor: "#27272a", background: "rgba(255,255,255,.01)" }}>
+            <div className="text-sm flex items-center gap-2 mb-1" style={{ color: "#E8B65A" }}>
+              {ehRemocao ? "Remover de todos os meses" : "Atualizar para todos os meses"}
+              <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "rgba(232,182,90,.1)" }}>permanente</span>
+            </div>
+            <div className="text-xs text-zinc-500 leading-relaxed">{ehRemocao ? "Apaga o gasto fixo e remove de todos os meses (atual e futuros)." : "Altera o template do gasto fixo. Vale para o mês atual e todos os futuros."}</div>
+          </button>
+        </div>
+        <div className="flex justify-end mt-5 pt-4 border-t" style={{ borderColor: "#27272a" }}>
+          <button onClick={onCancelar} className="px-4 py-2 text-xs uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GraficoPizza({ dados, total }) {
+  if (!dados.length || total === 0) {
+    return <div className="border border-dashed border-zinc-800 rounded-md py-10 text-center"><p className="text-sm text-zinc-500">Adicione despesas para ver a distribuição.</p></div>;
+  }
+  const size = 200, cx = size/2, cy = size/2, r = 78, stroke = 28, C = 2 * Math.PI * r;
+  let acumulado = 0;
+  const segmentos = dados.map((d) => {
+    const len = (d.percent / 100) * C;
+    const gap = dados.length > 1 ? 1.5 : 0;
+    const dash = `${Math.max(0, len - gap)} ${C}`;
+    const offset = -acumulado;
+    acumulado += len;
+    return { ...d, dash, offset };
+  });
+  const dominante = dados[0];
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1f1f23" strokeWidth={stroke} />
+          {segmentos.map((seg) => (
+            <circle key={seg.id} cx={cx} cy={cy} r={r} fill="none" stroke={seg.cor} strokeWidth={stroke} strokeDasharray={seg.dash} strokeDashoffset={seg.offset} style={{ transition: "stroke-dasharray .5s ease, stroke-dashoffset .5s ease" }} />
+          ))}
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Total</span>
+          <span className="mono text-base font-medium mt-0.5" style={{ color: "#E8E6E3" }}>{formatBRL(total)}</span>
+          {dominante && <span className="text-[10px] mt-2 px-2 py-0.5 rounded" style={{ background: `${dominante.cor}18`, color: dominante.cor }}>{dominante.nome} · {dominante.percent.toFixed(0)}%</span>}
+        </div>
+      </div>
+      <ul className="w-full mt-6 space-y-2">
+        {dados.map((d) => (
+          <li key={d.id} className="flex items-center gap-3 text-sm">
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: d.cor }} />
+            <span className="flex-1 text-zinc-300 truncate">{d.nome}</span>
+            <span className="mono text-xs text-zinc-500 w-10 text-right">{d.percent.toFixed(0)}%</span>
+            <span className="mono text-xs text-zinc-400 w-24 text-right">{formatBRL(d.valor)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value, icon, tone, emphasis }) {
+  const colors = { positive: "#7FB069", negative: "#D97757", highlight: "#E8B65A", danger: "#D97757" };
+  const c = colors[tone];
+  return (
+    <div className={`relative border rounded-lg p-5 transition ${emphasis ? "border-zinc-700" : "border-zinc-800"}`} style={{ background: emphasis ? "linear-gradient(135deg, rgba(232,182,90,.04), rgba(232,182,90,.01))" : "rgba(255,255,255,.01)" }}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs uppercase tracking-[0.18em] text-zinc-500 flex items-center gap-2">
+          <span style={{ color: c }}>{icon}</span> {label}
+        </span>
+      </div>
+      <div className={`mono ${emphasis ? "text-3xl" : "text-2xl"} font-medium`} style={{ color: c }}>{formatBRL(value)}</div>
+    </div>
+  );
+}
+
+function ActionButton({ children, active, onClick, tone }) {
+  const colors = {
+    positive: { bg: "rgba(127,176,105,.1)", border: "#7FB069", text: "#7FB069" },
+    negative: { bg: "rgba(217,119,87,.1)", border: "#D97757", text: "#D97757" },
+  };
+  const c = colors[tone];
+  return (
+    <button onClick={onClick} className="px-4 py-2.5 text-sm flex items-center gap-2 border rounded-md transition"
+      style={{ background: active ? c.bg : "transparent", borderColor: active ? c.border : "#27272a", color: active ? c.text : "#A1A1AA" }}>
+      {children}
+    </button>
+  );
+}
+
+function FormularioTransacao({ tipo, valoresIniciais, ehEdicao, eFixo, onSalvar, onCancelar }) {
+  const [descricao, setDescricao] = useState(valoresIniciais?.descricao || "");
+  const [valor, setValor] = useState(valoresIniciais ? String(valoresIniciais.valor).replace(".", ",") : "");
+  const [banco, setBanco] = useState(valoresIniciais?.banco || "");
+  const [categoriaId, setCategoriaId] = useState(valoresIniciais?.categoria_id || "");
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const ehDespesa = tipo === "saida";
+  const submeter = (e) => {
+    e?.preventDefault();
+    const v = parseFloat(String(valor).replace(",", "."));
+    if (!descricao.trim() || !v || v <= 0) return;
+    if (ehDespesa && !categoriaId) return;
+    const dados = {
+      descricao: descricao.trim(), valor: v, banco: banco.trim(),
+      ...(ehDespesa ? { categoria_id: categoriaId } : {}),
+    };
+    if (ehEdicao) onSalvar(dados);
+    else onSalvar({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, tipo, ...dados });
+  };
+  const onKey = (e) => { if (e.key === "Enter" && e.target.tagName !== "TEXTAREA") submeter(e); if (e.key === "Escape") onCancelar(); };
+  const acentoCor = ehDespesa ? "#D97757" : "#7FB069";
+  return (
+    <div className="mb-8 border rounded-lg p-5 fade-in" style={{ borderColor: "#27272a", background: "rgba(255,255,255,.015)" }}>
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-xs uppercase tracking-[0.18em] flex items-center gap-2" style={{ color: acentoCor }}>
+          {ehEdicao ? "Editar" : "Nova"} {ehDespesa ? "despesa" : "receita"}
+          {eFixo && <span className="text-[9px] px-1.5 py-0.5 rounded normal-case tracking-normal flex items-center gap-1" style={{ background: "rgba(232,182,90,.12)", color: "#E8B65A" }}><IRepeat size={9} /> Gasto fixo</span>}
+        </span>
+        <button onClick={onCancelar} className="text-zinc-500 hover:text-zinc-300 p-1"><IX size={14} /></button>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3" onKeyDown={onKey}>
+        <CampoForm label="Descrição" col="md:col-span-6">
+          <input ref={inputRef} type="text" placeholder={ehDespesa ? "Aluguel, mercado, Notion…" : "Salário, freela…"} value={descricao} onChange={(e) => setDescricao(e.target.value)} className="campo-input" />
+        </CampoForm>
+        <CampoForm label="Valor (R$)" col="md:col-span-2">
+          <input type="text" inputMode="decimal" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} className="campo-input mono" />
+        </CampoForm>
+        <CampoForm label="Banco" col="md:col-span-4">
+          <input type="text" placeholder="Nubank, Itaú…" value={banco} onChange={(e) => setBanco(e.target.value)} className="campo-input" />
+        </CampoForm>
+        {ehDespesa && (
+          <div className="md:col-span-12">
+            <span className="text-[10px] uppercase tracking-[0.15em] text-zinc-500 block mb-2">Categoria *</span>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIAS.map((cat) => {
+                const ativa = categoriaId === cat.id;
+                return (
+                  <button key={cat.id} type="button" onClick={() => setCategoriaId(cat.id)}
+                    className="px-3 py-2 text-sm border rounded-md transition flex items-center gap-2"
+                    style={{ background: ativa ? `${cat.cor}18` : "transparent", borderColor: ativa ? cat.cor : "#27272a", color: ativa ? cat.cor : "#A1A1AA" }}>
+                    <span className="w-2 h-2 rounded-sm" style={{ background: cat.cor }} />{cat.nome}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-zinc-800">
+        <span className="text-xs text-zinc-600">{ehDespesa ? "Categoria obrigatória · " : ""}Enter para salvar · Esc para cancelar</span>
+        <div className="flex gap-2">
+          <button onClick={onCancelar} className="px-4 py-2 text-xs uppercase tracking-wider text-zinc-400 hover:text-zinc-200 transition">Cancelar</button>
+          <button onClick={submeter} className="px-5 py-2 text-xs uppercase tracking-wider rounded-md transition" style={{ background: acentoCor, color: "#0E0E10", fontWeight: 600 }}>Salvar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CampoForm({ label, col, children }) {
+  return (
+    <label className={`flex flex-col gap-1.5 ${col || ""}`}>
+      <span className="text-[10px] uppercase tracking-[0.15em] text-zinc-500">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function ItemTransacao({ tx, onEditar, onRemover }) {
+  const ehSaida = tx.tipo === "saida";
+  const corValor = ehSaida ? "#D97757" : "#7FB069";
+  const cat = ehSaida && tx.categoria_id ? getCategoria(tx.categoria_id) : null;
+  const eFixo = !!tx.fixo_id;
+  return (
+    <li className="group flex items-center gap-3 px-4 py-3 hover:bg-zinc-900/40 rounded-md transition">
+      {cat && <span className="w-1 h-8 rounded-sm shrink-0" style={{ background: cat.cor }} />}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-zinc-200 truncate">{tx.descricao}</span>
+          {eFixo && <span title="Gasto fixo" className="shrink-0" style={{ color: "#E8B65A" }}><IRepeat size={11} /></span>}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {cat && <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `${cat.cor}15`, color: cat.cor }}><ITag size={9} /> {cat.nome}</span>}
+          {tx.banco && <span className="text-xs text-zinc-500 truncate">{tx.banco}</span>}
+        </div>
+      </div>
+      <span className="mono text-sm shrink-0" style={{ color: corValor }}>{ehSaida ? "−" : "+"} {formatBRL(tx.valor)}</span>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+        <button onClick={onEditar} className="text-zinc-600 hover:text-zinc-300 p-1"><IPencil size={12} /></button>
+        <button onClick={onRemover} className="text-zinc-600 hover:text-red-400 p-1"><ITrash size={13} /></button>
+      </div>
+    </li>
+  );
+}
+
+function EstadoVazio({ children }) {
+  return <div className="border border-dashed border-zinc-800 rounded-md py-10 text-center"><p className="text-sm text-zinc-500">{children}</p></div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
