@@ -43,7 +43,7 @@ const SUPABASE_URL = "https://dxkxspmnqjgdmdgwkjgu.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR4a3hzcG1ucWpnZG1kZ3dramd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5MTUxMDEsImV4cCI6MjA5MzQ5MTEwMX0.YRfgQbtB064PDpMTgJpjtvJSXDFQHdHpbTndBRCkP_Y";
 // ============================================================
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -108,7 +108,7 @@ function App() {
   useEffect(() => {
     if (erroConexao) return;
     (async () => {
-      const { data, error } = await supabase.from("gastos_fixos").select("*").order("descricao");
+      const { data, error } = await supabaseClient.from("gastos_fixos").select("*").order("descricao");
       if (error) { setErroConexao("Erro ao conectar: " + error.message); return; }
       setGastosFixos(data || []);
     })();
@@ -121,7 +121,7 @@ function App() {
     (async () => {
       setCarregando(true);
       try {
-        const { data: existentes, error } = await supabase
+        const { data: existentes, error } = await supabaseClient
           .from("transacoes").select("*").eq("periodo", periodoAtual);
         if (error) throw error;
         if (cancelado) return;
@@ -145,7 +145,7 @@ function App() {
             categoria_id: fixo.categoria_id,
             fixo_id: fixo.id,
           };
-          await supabase.from("transacoes").insert(tx);
+          await supabaseClient.from("transacoes").insert(tx);
           novas.push(tx);
         }
         if (cancelado) return;
@@ -162,7 +162,7 @@ function App() {
 
   const salvarTx = async (tx) => {
     const payload = { ...tx, periodo: periodoAtual };
-    await supabase.from("transacoes").upsert(payload);
+    await supabaseClient.from("transacoes").upsert(payload);
     setTransacoes(prev => [...prev.filter(x => x.id !== tx.id), payload]);
   };
 
@@ -173,28 +173,28 @@ function App() {
         periodo: periodoAtual, tipo: "_marker",
         descricao: "", valor: 0, excluido_fixo_id: tx.fixo_id,
       };
-      await supabase.from("transacoes").upsert(marcador);
+      await supabaseClient.from("transacoes").upsert(marcador);
     }
-    await supabase.from("transacoes").delete().eq("id", tx.id);
+    await supabaseClient.from("transacoes").delete().eq("id", tx.id);
     setTransacoes(prev => prev.filter(x => x.id !== tx.id));
   };
 
   const salvarFixo = async (fixo, propagar = true) => {
-    await supabase.from("gastos_fixos").upsert(fixo);
+    await supabaseClient.from("gastos_fixos").upsert(fixo);
     setGastosFixos(prev => {
       const novos = [...prev.filter(f => f.id !== fixo.id), fixo];
       return novos.sort((a, b) => a.descricao.localeCompare(b.descricao, "pt-BR"));
     });
     if (propagar) {
       const limite = mesAtualKey();
-      const { data } = await supabase.from("transacoes").select("*")
+      const { data } = await supabaseClient.from("transacoes").select("*")
         .eq("fixo_id", fixo.id).gte("periodo", limite);
       for (const tx of (data || [])) {
         const atualizada = {
           ...tx, descricao: fixo.descricao, valor: fixo.valor,
           banco: fixo.banco || "", categoria_id: fixo.categoria_id,
         };
-        await supabase.from("transacoes").upsert(atualizada);
+        await supabaseClient.from("transacoes").upsert(atualizada);
         if (tx.periodo === periodoAtual) {
           setTransacoes(prev => prev.map(t => t.id === atualizada.id ? atualizada : t));
         }
@@ -203,10 +203,10 @@ function App() {
   };
 
   const removerFixoCompleto = async (fixoId) => {
-    await supabase.from("gastos_fixos").delete().eq("id", fixoId);
+    await supabaseClient.from("gastos_fixos").delete().eq("id", fixoId);
     const limite = mesAtualKey();
-    await supabase.from("transacoes").delete().eq("fixo_id", fixoId).gte("periodo", limite);
-    await supabase.from("transacoes").delete().eq("excluido_fixo_id", fixoId).gte("periodo", limite);
+    await supabaseClient.from("transacoes").delete().eq("fixo_id", fixoId).gte("periodo", limite);
+    await supabaseClient.from("transacoes").delete().eq("excluido_fixo_id", fixoId).gte("periodo", limite);
     setGastosFixos(prev => prev.filter(f => f.id !== fixoId));
     setTransacoes(prev => prev.filter(t => t.fixo_id !== fixoId));
   };
@@ -238,14 +238,14 @@ function App() {
           id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           periodo: periodoAtual,
         };
-        await supabase.from("transacoes").delete().eq("id", tx.id);
+        await supabaseClient.from("transacoes").delete().eq("id", tx.id);
         const marcador = {
           id: `excl_${tx.fixo_id}_${periodoAtual}`,
           periodo: periodoAtual, tipo: "_marker",
           descricao: "", valor: 0, excluido_fixo_id: tx.fixo_id,
         };
-        await supabase.from("transacoes").upsert(marcador);
-        await supabase.from("transacoes").insert(desvinculada);
+        await supabaseClient.from("transacoes").upsert(marcador);
+        await supabaseClient.from("transacoes").insert(desvinculada);
         setTransacoes(prev => [...prev.filter(t => t.id !== tx.id), desvinculada]);
       } else {
         const fixo = gastosFixos.find(f => f.id === tx.fixo_id);
